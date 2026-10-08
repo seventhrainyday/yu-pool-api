@@ -21,6 +21,7 @@ function pool_db(): PDO {
         score INTEGER DEFAULT 0,
         ping_ms REAL DEFAULT 0,
         speed_bps INTEGER DEFAULT 0,
+        config_b64 TEXT DEFAULT '',
         last_seen INTEGER NOT NULL,
         uploader_count INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL
@@ -28,6 +29,7 @@ function pool_db(): PDO {
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_country ON nodes(country)");
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_last_seen ON nodes(last_seen)");
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_score ON nodes(score DESC)");
+    try { $pdo->exec("ALTER TABLE nodes ADD COLUMN config_b64 TEXT DEFAULT ''"); } catch (Exception $e) {}
     return $pdo;
 }
 
