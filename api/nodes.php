@@ -12,7 +12,7 @@ $maxAgeH = (int)($_GET['max_age_h'] ?? 48);  // 只要 48 小时内有人上报�
 $pdo = pool_db();
 $since = time() - $maxAgeH * 3600;
 
-$sql = "SELECT id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, last_seen, uploader_count
+$sql = "SELECT id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, config_b64, last_seen, uploader_count
         FROM nodes WHERE last_seen >= :since AND uploader_count >= :minUp";
 $params = [':since' => $since, ':minUp' => $minUp];
 if ($country !== '') { $sql .= " AND country = :country"; $params[':country'] = $country; }
