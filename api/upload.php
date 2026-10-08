@@ -17,8 +17,8 @@ $now = time();
 $added = 0; $updated = 0; $skipped = 0;
 
 $stmt = $pdo->prepare("INSERT INTO nodes
-    (id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, last_seen, uploader_count, created_at)
-    VALUES (:id, :ip, :port, :proto, :country, :country_zh, :score, :ping_ms, :speed_bps, :now, 1, :now)
+    (id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, config_b64, last_seen, uploader_count, created_at)
+    VALUES (:id, :ip, :port, :proto, :country, :country_zh, :score, :ping_ms, :speed_bps, :config_b64, :now, 1, :now)
     ON CONFLICT(id) DO UPDATE SET
         last_seen = :now,
         uploader_count = uploader_count + 1,
@@ -51,6 +51,7 @@ foreach ($nodes as $n) {
         ':score' => (int)($n['score'] ?? 0),
         ':ping_ms' => (float)($n['ping_ms'] ?? 0),
         ':speed_bps' => (int)($n['speed_bps'] ?? 0),
+        ':config_b64' => (string)($n['config_b64'] ?? ''),
         ':now' => $now,
     ]);
     $isNew ? $added++ : $updated++;
