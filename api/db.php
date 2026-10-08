@@ -30,6 +30,15 @@ function pool_db(): PDO {
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_last_seen ON nodes(last_seen)");
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_score ON nodes(score DESC)");
     try { $pdo->exec("ALTER TABLE nodes ADD COLUMN config_b64 TEXT DEFAULT ''"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE nodes ADD COLUMN uploader_ip TEXT DEFAULT ''"); } catch (Exception $e) {}
+    $pdo->exec("CREATE TABLE IF NOT EXISTS upload_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_id TEXT NOT NULL,
+        uploader_ip TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL
+    )");
+    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_log_node ON upload_log(node_id)");
+    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_log_time ON upload_log(created_at DESC)");
     return $pdo;
 }
 
@@ -39,6 +48,30 @@ function json_out(array $data, int $code = 200): void {
     header('Access-Control-Allow-Origin: *');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+function mask_ip(string $ip): string {
+    // 隐藏后两段：1.2.3.4 -> 1.2.*.*
+    $p = explode('.', $ip);
+    if (count($p) === 4) return $p[0] . '.' . $p[1] . '.*.*';
+    // IPv6 隐藏后 4 组
+    if (strpos($ip, ':') !== false) {
+        $g = explode(':', $ip);
+        $n = count($g);
+        for ($i = max(0, $n - 4); $i < $n; $i++) $g[$i] = '*';
+        return implode(':', $g);
+    }
+    return '***';
+}
+
+function client_ip(): string {
+    foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR'] as $k) {
+        if (!empty($_SERVER[$k])) {
+            $ip = trim(explode(',', $_SERVER[$k])[0]);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+        }
+    }
+    return '';
 }
 
 function json_in(): array {
