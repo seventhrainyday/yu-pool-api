@@ -15,13 +15,15 @@ if (count($nodes) > 200) { json_out(['ok' => false, 'error' => '单次最多 200
 $pdo = pool_db();
 $now = time();
 $added = 0; $updated = 0; $skipped = 0;
+$uploader_ip = client_ip();
 
 $stmt = $pdo->prepare("INSERT INTO nodes
-    (id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, config_b64, last_seen, uploader_count, created_at)
-    VALUES (:id, :ip, :port, :proto, :country, :country_zh, :score, :ping_ms, :speed_bps, :config_b64, :now, 1, :now)
+    (id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, config_b64, uploader_ip, last_seen, uploader_count, created_at)
+    VALUES (:id, :ip, :port, :proto, :country, :country_zh, :score, :ping_ms, :speed_bps, :config_b64, :uploader_ip, :now, 1, :now)
     ON CONFLICT(id) DO UPDATE SET
         last_seen = :now,
         uploader_count = uploader_count + 1,
+        uploader_ip = excluded.uploader_ip,
         score = MAX(score, excluded.score),
         ping_ms = CASE WHEN excluded.ping_ms > 0 THEN excluded.ping_ms ELSE ping_ms END");
 
@@ -52,9 +54,13 @@ foreach ($nodes as $n) {
         ':ping_ms' => (float)($n['ping_ms'] ?? 0),
         ':speed_bps' => (int)($n['speed_bps'] ?? 0),
         ':config_b64' => (string)($n['config_b64'] ?? ''),
+        ':uploader_ip' => $uploader_ip,
         ':now' => $now,
     ]);
     $isNew ? $added++ : $updated++;
+    // 记录上传日志（含重复）
+    $log = $pdo->prepare("INSERT INTO upload_log (node_id, uploader_ip, created_at) VALUES (?, ?, ?)");
+    $log->execute([$id, $uploader_ip, $now]);
 }
 
 json_out(['ok' => true, 'added' => $added, 'updated' => $updated, 'skipped' => $skipped]);
