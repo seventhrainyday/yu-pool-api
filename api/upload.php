@@ -16,16 +16,21 @@ $pdo = pool_db();
 $now = time();
 $added = 0; $updated = 0; $skipped = 0;
 $uploader_ip = client_ip();
+// 设备标识：客户端自动生成，可在面板修改；老客户端没有则按 IP 归一
+$device_id = preg_replace('/[^a-zA-Z0-9_-]/', '', trim((string)($in['device_id'] ?? '')));
+$device_id = substr($device_id, 0, 64);
+if ($device_id === '') $device_id = 'ip:' . ($uploader_ip !== '' ? $uploader_ip : 'unknown');
 
 $stmt = $pdo->prepare("INSERT INTO nodes
-    (id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, config_b64, uploader_ip, last_seen, uploader_count, created_at)
-    VALUES (:id, :ip, :port, :proto, :country, :country_zh, :score, :ping_ms, :speed_bps, :config_b64, :uploader_ip, :now, 1, :now)
+    (id, ip, port, proto, country, country_zh, score, ping_ms, speed_bps, config_b64, uploader_ip, last_seen, uploader_count, upload_count, created_at)
+    VALUES (:id, :ip, :port, :proto, :country, :country_zh, :score, :ping_ms, :speed_bps, :config_b64, :uploader_ip, :now, 1, 1, :now)
     ON CONFLICT(id) DO UPDATE SET
         last_seen = :now,
-        uploader_count = uploader_count + 1,
+        upload_count = upload_count + 1,
         uploader_ip = excluded.uploader_ip,
         score = MAX(score, excluded.score),
-        ping_ms = CASE WHEN excluded.ping_ms > 0 THEN excluded.ping_ms ELSE ping_ms END");
+        ping_ms = CASE WHEN excluded.ping_ms > 0 THEN excluded.ping_ms ELSE ping_ms END,
+        config_b64 = CASE WHEN excluded.config_b64 != '' THEN excluded.config_b64 ELSE config_b64 END");
 
 foreach ($nodes as $n) {
     if (!is_array($n)) { $skipped++; continue; }
@@ -58,9 +63,15 @@ foreach ($nodes as $n) {
         ':now' => $now,
     ]);
     $isNew ? $added++ : $updated++;
-    // 记录上传日志（含重复）
-    $log = $pdo->prepare("INSERT INTO upload_log (node_id, uploader_ip, created_at) VALUES (?, ?, ?)");
-    $log->execute([$id, $uploader_ip, $now]);
+    // 上传日志（含重复，带设备标识）
+    $log = $pdo->prepare("INSERT INTO upload_log (node_id, uploader_ip, device_id, created_at) VALUES (?, ?, ?, ?)");
+    $log->execute([$id, $uploader_ip, $device_id, $now]);
+    // 独立设备确认数：该设备首次上报此节点才 +1（新节点 upsert 已置 1）
+    $dev = $pdo->prepare("INSERT OR IGNORE INTO node_devices (node_id, device_id, first_seen) VALUES (?, ?, ?)");
+    $dev->execute([$id, $device_id, $now]);
+    if (!$isNew && $dev->rowCount() > 0) {
+        $pdo->prepare("UPDATE nodes SET uploader_count = uploader_count + 1 WHERE id = ?")->execute([$id]);
+    }
 }
 
 json_out(['ok' => true, 'added' => $added, 'updated' => $updated, 'skipped' => $skipped]);

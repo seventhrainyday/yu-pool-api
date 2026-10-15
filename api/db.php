@@ -31,6 +31,18 @@ function pool_db(): PDO {
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_score ON nodes(score DESC)");
     try { $pdo->exec("ALTER TABLE nodes ADD COLUMN config_b64 TEXT DEFAULT ''"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE nodes ADD COLUMN uploader_ip TEXT DEFAULT ''"); } catch (Exception $e) {}
+    // v2: 总上传次数（每次上报都+1）；uploader_count 改为独立设备数
+    try { $pdo->exec("ALTER TABLE nodes ADD COLUMN upload_count INTEGER DEFAULT 0"); } catch (Exception $e) {}
+    // v2: 回填历史 upload_count
+    try { $pdo->exec("UPDATE nodes SET upload_count = (SELECT COUNT(*) FROM upload_log WHERE upload_log.node_id = nodes.id) WHERE upload_count = 0"); } catch (Exception $e) {}
+    // v2: 节点-设备去重表（确认数=独立设备数）
+    $pdo->exec("CREATE TABLE IF NOT EXISTS node_devices (
+        node_id TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        first_seen INTEGER NOT NULL,
+        PRIMARY KEY (node_id, device_id)
+    )");
+    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_nd_device ON node_devices(device_id)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS upload_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         node_id TEXT NOT NULL,
@@ -39,6 +51,8 @@ function pool_db(): PDO {
     )");
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_log_node ON upload_log(node_id)");
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_log_time ON upload_log(created_at DESC)");
+    // v2: 上传日志带设备标识（老库 ALTER，新库建表时已无此列则补）
+    try { $pdo->exec("ALTER TABLE upload_log ADD COLUMN device_id TEXT DEFAULT ''"); } catch (Exception $e) {}
     return $pdo;
 }
 
