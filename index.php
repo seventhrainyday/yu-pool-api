@@ -13,6 +13,7 @@ $offset = ($page - 1) * $per;
 $total = (int)$pdo->query("SELECT COUNT(*) FROM nodes")->fetchColumn();
 $day = (int)$pdo->query("SELECT COUNT(*) FROM nodes WHERE last_seen >= " . (time() - 86400))->fetchColumn();
 $uploads = (int)$pdo->query("SELECT COUNT(*) FROM upload_log")->fetchColumn();
+$devices = (int)$pdo->query("SELECT COUNT(DISTINCT device_id) FROM node_devices")->fetchColumn();
 $countries = $pdo->query("SELECT country, country_zh, COUNT(*) c FROM nodes GROUP BY country ORDER BY c DESC")->fetchAll();
 
 // 节点列表
@@ -24,7 +25,7 @@ $cnt->execute($params);
 $filtered = (int)$cnt->fetchColumn();
 $pages = max(1, (int)ceil($filtered / $per));
 
-$stmt = $pdo->prepare("SELECT id, ip, port, proto, country, country_zh, score, ping_ms, uploader_count, uploader_ip, last_seen, created_at
+$stmt = $pdo->prepare("SELECT id, ip, port, proto, country, country_zh, score, ping_ms, uploader_count, upload_count, uploader_ip, last_seen, created_at
     FROM nodes $where ORDER BY uploader_count DESC, score DESC, last_seen DESC LIMIT $per OFFSET $offset");
 $stmt->execute($params);
 $nodes = $stmt->fetchAll();
@@ -75,7 +76,8 @@ footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
 <div class="stats">
   <div class="stat"><div class="n"><?= $total ?></div><div class="l">池中节点</div></div>
   <div class="stat"><div class="n"><?= $day ?></div><div class="l">24h 活跃</div></div>
-  <div class="stat"><div class="n"><?= $uploads ?></div><div class="l">累计上传（含重复）</div></div>
+  <div class="stat"><div class="n"><?= $uploads ?></div><div class="l">累计上传次数</div></div>
+  <div class="stat"><div class="n"><?= $devices ?></div><div class="l">独立设备</div></div>
   <div class="stat"><div class="n"><?= count($countries) ?></div><div class="l">覆盖国家/地区</div></div>
 </div>
 
@@ -87,14 +89,15 @@ footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
 </div>
 
 <table>
-<tr><th>节点</th><th>国家</th><th>分数</th><th>延迟</th><th>确认数</th><th>最后上传者</th><th>更新</th><th></th></tr>
+<tr><th>节点</th><th>国家</th><th>分数</th><th>延迟</th><th>确认设备</th><th>上传次数</th><th>最后上传者</th><th>更新</th><th></th></tr>
 <?php foreach ($nodes as $n): ?>
 <tr>
   <td><span class="ip"><?= htmlspecialchars($n['ip']) ?>:<?= $n['port'] ?></span> <span class="badge"><?= strtoupper($n['proto']) ?></span></td>
   <td><?= htmlspecialchars($n['country_zh'] ?: $n['country']) ?></td>
   <td><?= $n['score'] ?></td>
   <td><?= $n['ping_ms'] ? round($n['ping_ms']) . 'ms' : '-' ?></td>
-  <td><span class="badge <?= $n['uploader_count'] >= 3 ? 'hot' : '' ?>"><?= $n['uploader_count'] ?> 人</span></td>
+  <td><span class="badge <?= $n['uploader_count'] >= 3 ? 'hot' : '' ?>"><?= $n['uploader_count'] ?> 台</span></td>
+  <td><?= $n['upload_count'] ?: $n['uploader_count'] ?></td>
   <td class="ip"><?= mask_ip($n['uploader_ip']) ?></td>
   <td><?= ago((int)$n['last_seen']) ?></td>
   <td><a class="hist" href="history.php?id=<?= urlencode($n['id']) ?>">上传记录</a></td>

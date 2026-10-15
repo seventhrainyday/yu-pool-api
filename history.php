@@ -11,9 +11,16 @@ $node->execute([$id]);
 $n = $node->fetch();
 if (!$n) { http_response_code(404); exit('节点不存在'); }
 
-$logs = $pdo->prepare("SELECT uploader_ip, created_at FROM upload_log WHERE node_id = ? ORDER BY created_at DESC LIMIT 100");
+$logs = $pdo->prepare("SELECT uploader_ip, device_id, created_at FROM upload_log WHERE node_id = ? ORDER BY created_at DESC LIMIT 100");
 $logs->execute([$id]);
 $rows = $logs->fetchAll();
+
+function mask_device(string $d): string {
+    if (str_starts_with($d, 'ip:')) return mask_ip(substr($d, 3));
+    $d = trim($d);
+    if ($d === '') return '-';
+    return strlen($d) > 12 ? substr($d, 0, 8) . '…' : $d;
+}
 
 function ago2(int $ts): string {
     $d = time() - $ts;
@@ -47,13 +54,13 @@ a{color:#2563eb;text-decoration:none}
   <div class="info">
     节点 ID：<span class="ip"><?= htmlspecialchars($n['id']) ?></span><br>
     国家：<?= htmlspecialchars($n['country_zh'] ?: $n['country']) ?><br>
-    累计被 <?= $n['uploader_count'] ?> 人上传确认 · 共 <?= count($rows) ?> 条上传记录
+    累计被 <?= $n['uploader_count'] ?> 台独立设备确认 · 共 <?= $n['upload_count'] ?: count($rows) ?> 次上传
   </div>
 </div>
 <table>
-<tr><th>#</th><th>上传者（已脱敏）</th><th>时间</th></tr>
+<tr><th>#</th><th>设备标识</th><th>上传者 IP（已脱敏）</th><th>时间</th></tr>
 <?php foreach ($rows as $i => $r): ?>
-<tr><td><?= $i + 1 ?></td><td class="ip"><?= mask_ip($r['uploader_ip']) ?></td><td><?= ago2((int)$r['created_at']) ?></td></tr>
+<tr><td><?= $i + 1 ?></td><td class="ip"><?= htmlspecialchars(mask_device($r['device_id'] ?? '')) ?></td><td class="ip"><?= mask_ip($r['uploader_ip']) ?></td><td><?= ago2((int)$r['created_at']) ?></td></tr>
 <?php endforeach; ?>
 </table>
 </body>
