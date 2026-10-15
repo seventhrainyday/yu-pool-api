@@ -45,6 +45,13 @@ th{background:#f8fafc;text-align:left;padding:10px 14px;color:#666}
 td{padding:9px 14px;border-top:1px solid #f0f2f5}
 a{color:#2563eb;text-decoration:none}
 .back{display:inline-block;margin-bottom:12px;font-size:14px}
+.tbl-wrap{overflow-x:auto;background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tbl-wrap table{box-shadow:none;border-radius:0;min-width:480px}
+@media (max-width:768px){
+  body{padding:12px}
+  .card{padding:14px}
+  th,td{padding:8px 10px;font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -57,11 +64,13 @@ a{color:#2563eb;text-decoration:none}
     累计被 <?= $n['uploader_count'] ?> 台独立设备确认 · 共 <?= $n['upload_count'] ?: count($rows) ?> 次上传
   </div>
 </div>
+<div class="tbl-wrap">
 <table>
 <tr><th>#</th><th>设备标识</th><th>上传者 IP（已脱敏）</th><th>时间</th></tr>
 <?php foreach ($rows as $i => $r): ?>
 <tr><td><?= $i + 1 ?></td><td class="ip"><?= htmlspecialchars(mask_device($r['device_id'] ?? '')) ?></td><td class="ip"><?= mask_ip($r['uploader_ip']) ?></td><td><?= ago2((int)$r['created_at']) ?></td></tr>
 <?php endforeach; ?>
 </table>
+</div>
 </body>
 </html>

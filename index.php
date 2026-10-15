@@ -75,6 +75,24 @@ tr:hover td{background:#f8fafc}
 .pager a{display:inline-block;padding:6px 14px;margin:0 4px;background:#fff;border-radius:8px;text-decoration:none;color:#2563eb;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:13px}
 .hist{font-size:12px;color:#2563eb;cursor:pointer}
 footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
+/* 移动端卡片（桌面隐藏） */
+.node-cards{display:none}
+.ncard{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.ncard-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ncard-top .ip{font-size:15px;font-weight:600}
+.ncard-country{margin-left:auto;font-size:13px;color:#555}
+.ncard-stats{display:flex;gap:14px;margin-top:8px;font-size:12px;color:#666;flex-wrap:wrap}
+.ncard-stats b{color:#333;font-weight:600}
+.ncard-meta{margin-top:8px;font-size:12px;color:#888;line-height:1.9}
+.ncard-meta a{color:#2563eb;text-decoration:none}
+@media (max-width:768px){
+  table.node-table{display:none}
+  .node-cards{display:block}
+  body{padding:12px}
+  h1{font-size:20px}
+  .stat{padding:10px 14px;min-width:calc(50% - 6px)}
+  .stat .n{font-size:22px}
+}
 </style>
 </head>
 <body>
@@ -96,7 +114,7 @@ footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
   <?php endforeach; ?>
 </div>
 
-<table>
+<table class="node-table">
 <tr><th>节点</th><th>国家</th><th>分数</th><th>延迟</th><th>可用率</th><th>确认设备</th><th>上传次数</th><th>最后上传者</th><th>更新</th><th></th></tr>
 <?php foreach ($nodes as $n): ?>
 <tr>
@@ -113,6 +131,28 @@ footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
 </tr>
 <?php endforeach; ?>
 </table>
+
+<div class="node-cards">
+<?php foreach ($nodes as $n): ?>
+  <div class="ncard">
+    <div class="ncard-top">
+      <span class="ip"><?= htmlspecialchars($n['ip']) ?>:<?= $n['port'] ?></span>
+      <span class="badge"><?= strtoupper($n['proto']) ?></span>
+      <span class="ncard-country"><?= htmlspecialchars($n['country_zh'] ?: $n['country']) ?></span>
+    </div>
+    <div class="ncard-stats">
+      <span>分数 <b><?= $n['score'] ?></b></span>
+      <span>延迟 <b><?= $n['ping_ms'] ? round($n['ping_ms']) . 'ms' : '-' ?></b></span>
+      <span>可用率 <b><?= $n['avail'] === null ? '-' : $n['avail'] . '%' ?></b></span>
+      <span>确认 <b><?= $n['uploader_count'] ?>台</b></span>
+      <span>上传 <b><?= $n['upload_count'] ?: $n['uploader_count'] ?>次</b></span>
+    </div>
+    <div class="ncard-meta">
+      <?= mask_ip($n['uploader_ip']) ?> · <?= ago((int)$n['last_seen']) ?> · <a href="history.php?id=<?= urlencode($n['id']) ?>">上传记录</a>
+    </div>
+  </div>
+<?php endforeach; ?>
+</div>
 
 <div class="pager">
   <?php if ($page > 1): ?><a href="?country=<?= urlencode($country) ?>&page=<?= $page - 1 ?>">← 上一页</a><?php endif; ?>
