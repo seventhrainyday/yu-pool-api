@@ -25,10 +25,18 @@ $cnt->execute($params);
 $filtered = (int)$cnt->fetchColumn();
 $pages = max(1, (int)ceil($filtered / $per));
 
-$stmt = $pdo->prepare("SELECT id, ip, port, proto, country, country_zh, score, ping_ms, uploader_count, upload_count, uploader_ip, last_seen, created_at
-    FROM nodes $where ORDER BY uploader_count DESC, score DESC, last_seen DESC LIMIT $per OFFSET $offset");
+$since24 = time() - 86400;
+$stmt = $pdo->prepare("SELECT id, ip, port, proto, country, country_zh, score, ping_ms, uploader_count, upload_count, uploader_ip, last_seen, created_at,
+    (SELECT COUNT(*) FROM node_votes v WHERE v.node_id = nodes.id AND v.created_at >= $since24) AS votes_total,
+    (SELECT SUM(v.ok) FROM node_votes v WHERE v.node_id = nodes.id AND v.created_at >= $since24) AS votes_ok
+    FROM nodes $where ORDER BY (votes_total > 0) DESC, (CAST(votes_ok AS REAL) / NULLIF(votes_total, 0)) DESC, uploader_count DESC, score DESC, last_seen DESC LIMIT $per OFFSET $offset");
 $stmt->execute($params);
 $nodes = $stmt->fetchAll();
+foreach ($nodes as &$nn) {
+    $t = (int)($nn['votes_total'] ?? 0);
+    $nn['avail'] = $t > 0 ? (int)round(100 * (int)$nn['votes_ok'] / $t) : null;
+}
+unset($nn);
 
 function ago(int $ts): string {
     $d = time() - $ts;
@@ -89,13 +97,14 @@ footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
 </div>
 
 <table>
-<tr><th>节点</th><th>国家</th><th>分数</th><th>延迟</th><th>确认设备</th><th>上传次数</th><th>最后上传者</th><th>更新</th><th></th></tr>
+<tr><th>节点</th><th>国家</th><th>分数</th><th>延迟</th><th>可用率</th><th>确认设备</th><th>上传次数</th><th>最后上传者</th><th>更新</th><th></th></tr>
 <?php foreach ($nodes as $n): ?>
 <tr>
   <td><span class="ip"><?= htmlspecialchars($n['ip']) ?>:<?= $n['port'] ?></span> <span class="badge"><?= strtoupper($n['proto']) ?></span></td>
   <td><?= htmlspecialchars($n['country_zh'] ?: $n['country']) ?></td>
   <td><?= $n['score'] ?></td>
   <td><?= $n['ping_ms'] ? round($n['ping_ms']) . 'ms' : '-' ?></td>
+  <td><?= $n['avail'] === null ? '<span style="color:#aaa">-</span>' : '<span class="badge ' . ($n['avail'] >= 80 ? 'hot' : '') . '">' . $n['avail'] . '%</span>' ?></td>
   <td><span class="badge <?= $n['uploader_count'] >= 3 ? 'hot' : '' ?>"><?= $n['uploader_count'] ?> 台</span></td>
   <td><?= $n['upload_count'] ?: $n['uploader_count'] ?></td>
   <td class="ip"><?= mask_ip($n['uploader_ip']) ?></td>
@@ -111,6 +120,6 @@ footer{text-align:center;color:#aaa;font-size:12px;margin-top:24px}
   <?php if ($page < $pages): ?><a href="?country=<?= urlencode($country) ?>&page=<?= $page + 1 ?>">下一页 →</a><?php endif; ?>
 </div>
 
-<footer>Yu-pool · 数据每 48 小时未更新则不再展示 · 7 天无人上报自动清理</footer>
+<footer>Yu-pool · 数据每 48 小时未更新则不再展示 · 7 天无人上报自动清理 · <a href="update.php" style="color:#aaa">在线更新</a></footer>
 </body>
 </html>

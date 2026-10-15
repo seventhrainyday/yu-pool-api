@@ -6,4 +6,5 @@ require __DIR__ . '/api/db.php';
 $pdo = pool_db();
 $cutoff = time() - 7 * 86400;
 $n = $pdo->exec("DELETE FROM nodes WHERE last_seen < $cutoff");
-echo date('Y-m-d H:i:s') . " cleaned $n stale nodes\n";
+$v = $pdo->exec("DELETE FROM node_votes WHERE created_at < $cutoff");
+echo date('Y-m-d H:i:s') . " cleaned $n stale nodes, $v old votes\n";

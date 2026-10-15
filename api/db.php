@@ -53,6 +53,16 @@ function pool_db(): PDO {
     $pdo->exec("CREATE INDEX IF NOT EXISTS idx_log_time ON upload_log(created_at DESC)");
     // v2: 上传日志带设备标识（老库 ALTER，新库建表时已无此列则补）
     try { $pdo->exec("ALTER TABLE upload_log ADD COLUMN device_id TEXT DEFAULT ''"); } catch (Exception $e) {}
+    // v3: 存活投票（每设备每节点每小时一条，可覆盖）
+    $pdo->exec("CREATE TABLE IF NOT EXISTS node_votes (
+        node_id TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        hour INTEGER NOT NULL,
+        ok INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (node_id, device_id, hour)
+    )");
+    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_votes_node ON node_votes(node_id, created_at DESC)");
     return $pdo;
 }
 
